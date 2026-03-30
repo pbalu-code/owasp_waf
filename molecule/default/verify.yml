@@ -1,0 +1,26 @@
+---
+# Purpose: assert that the instance really ended up in the expected state.
+# Molecule calls this playbook with `molecule verify`.
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+  tasks:
+    - name: Check HTTP on localhost:80
+      ansible.builtin.uri:
+        url: "http://localhost/?exec=/bin/bash"
+        return_content: false
+        status_code: 403
+        timeout: 10
+      register: http_check
+
+    - name: Report HTTP test success when status is 403
+      ansible.builtin.debug:
+        msg: "HTTP check to http://localhost:80 successful (status {{ http_check.status }})."
+      when: http_check.status is defined and http_check.status == 403
+
+    - name: Fail if HTTP check failed
+      ansible.builtin.fail:
+        msg: "HTTP check to http://localhost:80 failed (status {{ http_check.status }})."
+      when: http_check.status is not defined or http_check.status != 403
+

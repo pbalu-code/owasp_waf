@@ -1,3 +1,30 @@
 #SPDX-License-Identifier: MIT-0
 ---
 # handlers file for owasp_waf
+- name: Restart apache2
+  ansible.builtin.service:
+    name: apache2
+    state: restarted
+  tags:
+    - owasp
+
+- name: Restart nginx
+  ansible.builtin.service:
+    name: nginx
+    state: restarted
+  tags:
+    - owasp
+
+- name: Reload apache2
+  ansible.builtin.service:
+    name: apache2
+    state: reloaded
+  tags:
+    - owasp
+
+- name: Reload nginx
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded
+  tags:
+    - owasp

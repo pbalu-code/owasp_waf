@@ -1,0 +1,184 @@
+---
+- name: Install OWASP WAF on Apache2
+  ansible.builtin.apt:
+    name: 
+      - libapache2-mod-security2
+#      - modsecurity-crs
+    state: present
+    update_cache: True
+    cache_valid_time: 3600
+  tags:
+    - owasp
+
+- name: Remove installed roleset to win_update
+  ansible.builtin.file:
+    path: /etc/apache2/modsec
+    state: absent
+  when: OWASP_update_roles
+  tags:
+    - owasp
+
+- name: Create modsec configuration directory
+  ansible.builtin.file:
+    path: /etc/apache2/modsec
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags:
+    - owasp
+
+- name: Get the latest OWASP CRS release information
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/coreruleset/coreruleset/releases/latest"
+    return_content: true
+  register: crs_release
+  tags:
+    - owasp
+
+- name: Debug CRS release information
+  ansible.builtin.debug:
+    var: crs_release.json.name
+  tags:
+    - owasp
+
+- name: Check CRS role existence
+  ansible.builtin.stat:
+    path: /etc/apache2/modsec/crs-setup.conf.example
+  register: crs_role_stat
+  tags:
+    - owasp
+
+- name: Download the latest OWASP CRS release
+  ansible.builtin.get_url:
+    url: "{{ crs_release.json.tarball_url }}"
+    dest: "/tmp/owasp-crs.tar.gz"
+  when: not crs_role_stat.stat.exists
+  tags:
+    - owasp
+
+- name: Extract OWASP CRS to the modsec configuration directory
+  ansible.builtin.unarchive:
+    src: "/tmp/owasp-crs.tar.gz"
+    dest: "/etc/apache2/modsec/"
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+  when: not crs_role_stat.stat.exists
+  notify: Restart apache2
+  tags:
+    - owasp
+
+- name: Remove the downloaded OWASP CRS archive
+  ansible.builtin.file:
+    path: "/tmp/owasp-crs.tar.gz"
+    state: absent
+  tags:
+    - owasp
+
+- name: Create crs-setup.conf
+  ansible.builtin.command:
+    cmd: "cp /etc/apache2/modsec/crs-setup.conf.example /etc/apache2/modsec/crs-setup.conf"
+    creates: "/etc/apache2/modsec/crs-setup.conf"
+  notify: Restart apache2
+  tags:
+    - owasp
+
+- name: Set paranoia level
+  ansible.builtin.blockinfile:
+    path: /etc/apache2/modsec/crs-setup.conf
+    insertafter: '^#\s*setvar:tx\.blocking_paranoia_level=1"\s*$'
+    block: |
+      # Set paranoia level
+      SecAction \
+        "id:900000,\
+        phase:1,\
+        pass,\
+        t:none,\
+        nolog,\
+        tag:'OWASP_CRS',\
+        ver:'OWASP_CRS/{{ crs_release.json.tag_name }}',\
+        setvar:tx.blocking_paranoia_level={{ OWASP_paranoia_level | default(1) }}"
+  notify: Restart apache2
+  tags:
+    - owasp
+
+- name: Enable OWASP CRS Blocking Mode
+  ansible.builtin.lineinfile:
+    path: /etc/apache2/modsec/crs-setup.conf
+    regexp: '^SecRuleEngine'
+    line: 'SecRuleEngine On'
+  notify: Restart apache2
+  tags:
+    - owasp
+
+- name: Configure Audit logentries_msg
+  ansible.builtin.lineinfile:
+    path: /etc/apache2/modsec/crs-setup.conf
+    regexp: '^SecAuditLogParts'
+    line: 'SecAuditLogParts {{ OWASP_audit_log_parts | default("ABIJDEFHZ") }}'
+  notify: Restart apache2
+  tags:
+    - owasp
+ 
+- name: Create Exclusion rules before conf
+  ansible.builtin.command:
+    cmd: "cp /etc/apache2/modsec/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf.example /etc/apache2/modsec/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"
+    creates: "/etc/apache2/modsec/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"
+  notify: Restart apache2
+  tags:
+    - owasp
+
+- name: Create Exclusion rules after conf
+  ansible.builtin.command:
+    cmd: "cp /etc/apache2/modsec/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf.example /etc/apache2/modsec/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf"
+    creates: "/etc/apache2/modsec/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf"
+  notify: Restart apache2
+  tags:
+    - owasp
+
+- name: Create security2.conf
+  ansible.builtin.copy:
+    dest: /etc/apache2/mods-available/security2.conf
+    content: |
+      # ModSecurity configuration for Apache2 by Ansible Role
+      <IfModule security2_module>
+        # Security2 configuration
+        SecDataDir /var/cache/modsecurity
+        # Include ModSecurity base configuration
+        IncludeOptional /etc/modsecurity/*.conf
+        # Include OWASP CRS configuration and rules
+        Include /etc/apache2/modsec/crs-setup.conf
+        Include /etc/apache2/modsec/rules/*.conf
+      </IfModule>
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart apache2
+  tags:
+    - owasp
+
+- name: Make sure the default modsecurity configfile is not expect
+  ansible.builtin.file:
+    path: /etc/modsecurity/crs/crs-setup.conf
+    state: absent
+  notify: Restart apache2
+  tags:
+    - owasp
+
+# Install CRS from Ubuntu Repositories
+# - name: Enable OWASP WAF module in Apache2
+#   ansible.builtin.apache2_module:
+#     name: security2
+#     state: present
+#   notify: Restart apache2
+#   tags:
+#     - owasp
+
+# - name: Rename OWASP CRS configuration file
+#   ansible.builtin.command:
+#     cmd: "mv /etc/modsecurity/modsecurity.conf-recommended /etc/modsecurity/modsecurity.conf"
+#     creates: "/etc/modsecurity/modsecurity.conf"
+#   notify: Restart apache2
+#   tags:
+#     - owasp
+

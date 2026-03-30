@@ -1,3 +1,31 @@
 #SPDX-License-Identifier: MIT-0
 ---
 # tasks file for owasp_waf
+- name: Check supported operating system
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Ubuntu'
+      - ansible_distribution_version is version('24.04', '>=')
+    fail_msg: "This role supports Ubuntu 24.04 and newer only."
+    success_msg: "Supported OS detected: Ubuntu {{ ansible_distribution_version }}"
+  tags:
+    - owasp
+
+- name: Gether installed packages facts
+  ansible.builtin.package_facts:
+    manager: apt
+  tags:
+    - owasp
+
+- name: Include apache2 OWASP tasks
+  ansible.builtin.include_tasks: apache2.yml
+  when: "'apache2' in ansible_facts.packages"
+  tags:
+    - owasp
+
+- name: Include nginx OWASP tasks
+  ansible.builtin.include_tasks: nginx.yml
+  when: "'nginx' in ansible_facts.packages"
+  tags:
+    - owasp
+
