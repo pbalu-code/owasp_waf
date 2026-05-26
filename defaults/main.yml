@@ -1,5 +1,8 @@
 #SPDX-License-Identifier: MIT-0
 ---
 # defaults file for owasp_waf
-OWASP_update_roles: false
+owasp_update_roles: false
 
+owasp_global_vars:
+  SecPcreMatchLimit: 200000
+  SecPcreMatchLimitRecursion: 200000

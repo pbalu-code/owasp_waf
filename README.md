@@ -29,21 +29,21 @@ Note: Nginx task file is currently a placeholder, so active configuration logic 
 Defined in defaults:
 
 ```yaml
-OWASP_update_roles: false
+owasp_update_roles: false
 ```
 
 Optional variable used by the role:
 
 ```yaml
-OWASP_paranoia_level: 1
-OWASP_audit_log_parts: ABIJDEFHZ
+owasp_paranoia_level: 1
+owasp_audit_log_parts: ABIJDEFHZ
 ```
 
 Variable details:
 
-- OWASP_update_roles: when true, removes /etc/apache2/modsec before re-installing CRS content
-- OWASP_paranoia_level: CRS blocking paranoia level injected into crs-setup.conf (default: 1)
-- OWASP_audit_log_parts: value for SecAuditLogParts (default: ABIJDEFHZ)
+- owasp_update_roles: when true, removes /etc/apache2/modsec before re-installing CRS content
+- owasp_paranoia_level: CRS blocking paranoia level injected into crs-setup.conf (default: 1)
+- owasp_audit_log_parts: value for SecAuditLogParts (default: ABIJDEFHZ)
 
 ## Example playbook
 
@@ -54,9 +54,9 @@ Variable details:
   become: true
 
   vars:
-    OWASP_update_roles: false
-    OWASP_paranoia_level: 2
-    OWASP_audit_log_parts: ABIJDEFHZ
+    owasp_update_roles: false
+    owasp_paranoia_level: 2
+    owasp_audit_log_parts: ABIJDEFHZ
 
   roles:
     - role: balazspetik.owasp_waf
@@ -67,8 +67,8 @@ Variable details:
 
 ```yaml
 # group_vars/webservers.yml
-OWASP_paranoia_level: 2
-OWASP_audit_log_parts: ABIJDEFHZ
+owasp_paranoia_level: 2
+owasp_audit_log_parts: ABIJDEFHZ
 ```
 
 ## Tags

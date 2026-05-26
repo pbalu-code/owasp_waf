@@ -14,7 +14,7 @@
   ansible.builtin.file:
     path: /etc/apache2/modsec
     state: absent
-  when: OWASP_update_roles
+  when: owasp_update_roles
   tags:
     - owasp
 
@@ -97,7 +97,7 @@
         nolog,\
         tag:'OWASP_CRS',\
         ver:'OWASP_CRS/{{ crs_release.json.tag_name }}',\
-        setvar:tx.blocking_paranoia_level={{ OWASP_paranoia_level | default(1) }}"
+        setvar:tx.blocking_paranoia_level={{ owasp_paranoia_level | default(1) }}"
   notify: Restart apache2
   tags:
     - owasp
@@ -115,11 +115,31 @@
   ansible.builtin.lineinfile:
     path: /etc/apache2/modsec/crs-setup.conf
     regexp: '^SecAuditLogParts'
-    line: 'SecAuditLogParts {{ OWASP_audit_log_parts | default("ABIJDEFHZ") }}'
+    line: 'SecAuditLogParts {{ owasp_audit_log_parts | default("ABIJDEFHZ") }}'
   notify: Restart apache2
   tags:
     - owasp
- 
+
+- name: Add OWASP global config values
+  ansible.builtin.lineinfile:
+    path: /etc/apache2/modsec/crs-setup.conf
+    regexp: '^\s*{{ item.key }}'
+    line: '{{ item.key }} {{ item.value }}'
+  notify: Restart apache2
+  loop: "{{ owasp_global_vars | default({}) | dict2items }}"
+  tags:
+    - owasp
+
+- name: Set OWASP globally disabled rules
+  ansible.builtin.lineinfile:
+    path: /etc/apache2/modsec/crs-setup.conf
+    regexp: '^SecRuleRemoveById'
+    line: 'SecRuleRemoveById {{ owasp_globally_disabled_rules | join(" ") }}'
+  when: owasp_globally_disabled_rules is defined and owasp_globally_disabled_rules | length > 0
+  notify: Restart apache2
+  tags:
+    - owasp
+
 - name: Create Exclusion rules before conf
   ansible.builtin.command:
     cmd: "cp /etc/apache2/modsec/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf.example /etc/apache2/modsec/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"
