@@ -123,7 +123,7 @@
 - name: Add OWASP global config values
   ansible.builtin.lineinfile:
     path: /etc/apache2/modsec/crs-setup.conf
-    regexp: '^\s*{{ item.key }}'
+    regexp: '^\s*{{ item.key | regex_escape }}(?:\s|$)'
     line: '{{ item.key }} {{ item.value }}'
   notify: Restart apache2
   loop: "{{ owasp_global_vars | default({}) | dict2items }}"
@@ -201,4 +201,3 @@
 #   notify: Restart apache2
 #   tags:
 #     - owasp
-
